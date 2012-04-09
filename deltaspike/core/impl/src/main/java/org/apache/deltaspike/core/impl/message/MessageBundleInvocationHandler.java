@@ -43,9 +43,9 @@ class MessageBundleInvocationHandler implements InvocationHandler
     @Override
     public Object invoke(final Object proxy, final Method method, final Object[] args) throws Throwable
     {
-        final MessageTemplate messageDescriptor = method.getAnnotation(MessageTemplate.class);
+        final MessageTemplate messageTemplate = method.getAnnotation(MessageTemplate.class);
 
-        if (messageDescriptor == null)
+        if (messageTemplate == null)
         {
             // nothing to do... TODO discuss it
             return null;
@@ -82,7 +82,7 @@ class MessageBundleInvocationHandler implements InvocationHandler
                 messageContextConfig = new MessageContextConfigLiteral();
             }
 
-            String messageTemplate;
+            String resolvedMessageTemplate;
 
             if (!MessageResolver.class.equals(messageContextConfig.messageResolver()))
             {
@@ -91,7 +91,7 @@ class MessageBundleInvocationHandler implements InvocationHandler
 
                 MessageResolver messageResolver = BeanProvider.getContextualReference(messageResolverClass);
 
-                messageTemplate = messageResolver.getMessage(messageDescriptor.value());
+                resolvedMessageTemplate = messageResolver.getMessage(messageTemplate.value());
             }
             else
             {
@@ -108,19 +108,19 @@ class MessageBundleInvocationHandler implements InvocationHandler
                 }
 
                 String messageBundleName = method.getDeclaringClass().getName();
-                messageTemplate = new DefaultMessageResolver(messageBundleName, resolvedLocale)
-                    .getMessage(messageDescriptor.value());
+                resolvedMessageTemplate = new DefaultMessageResolver(messageBundleName, resolvedLocale)
+                    .getMessage(messageTemplate.value());
             }
 
             Class<? extends MessageInterpolator> messageInterpolatorClass =
                     ClassUtils.tryToLoadClassForName(messageContextConfig.messageInterpolator().getName());
 
-            String result = messageTemplate;
+            String result = resolvedMessageTemplate;
 
             if (!MessageInterpolator.class.equals(messageInterpolatorClass))
             {
                 MessageInterpolator messageInterpolator = BeanProvider.getContextualReference(messageInterpolatorClass);
-                result = messageInterpolator.interpolate(messageTemplate, args);
+                result = messageInterpolator.interpolate(resolvedMessageTemplate, args);
             }
 
             return result;
@@ -129,10 +129,10 @@ class MessageBundleInvocationHandler implements InvocationHandler
         {
             if (String.class.isAssignableFrom(method.getReturnType()))
             {
-                return messageContext.message().text(messageDescriptor.value()).argument(arguments.toArray()).toText();
+                return messageContext.message().text(messageTemplate.value()).argument(arguments.toArray()).toText();
             }
 
-            return messageContext.message().text(messageDescriptor.value()).argument(arguments.toArray()).create();
+            return messageContext.message().text(messageTemplate.value()).argument(arguments.toArray()).create();
         }
     }
 }

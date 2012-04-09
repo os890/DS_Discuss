@@ -33,17 +33,17 @@ import java.util.List;
 @Typed()
 class DefaultMessage implements Message
 {
-    protected String messageDescriptor;
+    protected String messageTemplate;
     protected List<Object> arguments = new ArrayList<Object>();
 
     private MessageContext.Config messageContextConfig;
 
     DefaultMessage(MessageContext.Config messageContextConfig,
-                   String messageDescriptor,
+                   String messageTemplate,
                    Object... arguments)
     {
         this.messageContextConfig = messageContextConfig;
-        this.messageDescriptor = messageDescriptor;
+        this.messageTemplate = messageTemplate;
         this.arguments.addAll(Arrays.asList(arguments));
     }
 
@@ -117,9 +117,9 @@ class DefaultMessage implements Message
     }
 
     @Override
-    public String getDescriptor()
+    public String getMessageTemplate()
     {
-        return this.messageDescriptor;
+        return this.messageTemplate;
     }
 
     @Override
@@ -138,7 +138,7 @@ class DefaultMessage implements Message
     public String toString(MessageContext messageContext)
     {
         return messageContext.message()
-                .text(getDescriptor())
+                .text(getMessageTemplate())
                 .argument(getArguments())
                 .toText();
     }
@@ -162,7 +162,7 @@ class DefaultMessage implements Message
 
         Message that = (Message) o;
 
-        if (!getDescriptor().equals(that.getDescriptor()))
+        if (!getMessageTemplate().equals(that.getMessageTemplate()))
         {
             return false;
         }
@@ -178,7 +178,7 @@ class DefaultMessage implements Message
     @Override
     public int hashCode()
     {
-        int result = getDescriptor().hashCode();
+        int result = getMessageTemplate().hashCode();
         result = 31 * result + (arguments != null ? arguments.hashCode() : 0);
         return result;
     }

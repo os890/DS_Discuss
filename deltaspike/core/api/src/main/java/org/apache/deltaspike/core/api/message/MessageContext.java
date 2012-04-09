@@ -36,9 +36,9 @@ public interface MessageContext extends LocaleResolver, Serializable
     Config config();
 
     /*
-     * @param messageDescriptor a message which should be added to the current context (message handlers)
+     * @param messageTemplate a message which should be added to the current context (message handlers)
      */
-    //void addMessage(Message messageDescriptor);
+    //void addMessage(Message messageTemplate);
 
     /**
      * Helper for building instances of {@link Message}
@@ -46,10 +46,10 @@ public interface MessageContext extends LocaleResolver, Serializable
     interface MessageBuilder
     {
         /**
-         * @param messageDescriptor message key (or inline-text) for the current message
+         * @param messageTemplate message key (or inline-text) for the current message
          * @return the current instance of the message builder to allow a fluent api
          */
-        MessageBuilder text(String messageDescriptor);
+        MessageBuilder text(String messageTemplate);
 
         /**
          * @param arguments numbered and/or named argument(s) for the current message

@@ -50,21 +50,21 @@ class DefaultMessageResolver implements MessageResolver
     }
 
     @Override
-    public String getMessage(String messageDescriptor)
+    public String getMessage(String messageTemplate)
     {
-        if (this.messageBundle != null && messageDescriptor != null &&
-            messageDescriptor.startsWith("{") && messageDescriptor.endsWith("}"))
+        if (this.messageBundle != null && messageTemplate != null &&
+            messageTemplate.startsWith("{") && messageTemplate.endsWith("}"))
         {
             try
             {
-                return this.messageBundle.getString(messageDescriptor.substring(1, messageDescriptor.length() - 1));
+                return this.messageBundle.getString(messageTemplate.substring(1, messageTemplate.length() - 1));
             }
             catch (MissingResourceException e)
             {
-                return MISSING_RESOURCE_MARKER + messageDescriptor + MISSING_RESOURCE_MARKER;
+                return MISSING_RESOURCE_MARKER + messageTemplate + MISSING_RESOURCE_MARKER;
             }
         }
 
-        return messageDescriptor;
+        return messageTemplate;
     }
 }

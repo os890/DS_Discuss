@@ -32,8 +32,8 @@ class DefaultMessageInterpolator implements MessageInterpolator, Serializable
     private static final long serialVersionUID = -8854087197813424812L;
 
     @Override
-    public String interpolate(String messageDescriptor, Object... arguments)
+    public String interpolate(String messageTemplate, Object... arguments)
     {
-        return messageDescriptor;
+        return messageTemplate;
     }
 }

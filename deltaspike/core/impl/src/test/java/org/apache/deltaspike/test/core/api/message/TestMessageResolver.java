@@ -57,22 +57,22 @@ public class TestMessageResolver implements MessageResolver
     }
 
     @Override
-    public String getMessage(String messageDescriptor)
+    public String getMessage(String messageTemplate)
     {
-        if (this.messageBundle != null && messageDescriptor != null &&
-                messageDescriptor.startsWith("{") && messageDescriptor.endsWith("}"))
+        if (this.messageBundle != null && messageTemplate != null &&
+                messageTemplate.startsWith("{") && messageTemplate.endsWith("}"))
         {
-            messageDescriptor = messageDescriptor.substring(1, messageDescriptor.length() - 1);
+            messageTemplate = messageTemplate.substring(1, messageTemplate.length() - 1);
             try
             {
-                return this.messageBundle.getString(messageDescriptor);
+                return this.messageBundle.getString(messageTemplate);
             }
             catch (MissingResourceException e)
             {
-                return messageDescriptor;
+                return messageTemplate;
             }
         }
 
-        return messageDescriptor;
+        return messageTemplate;
     }
 }

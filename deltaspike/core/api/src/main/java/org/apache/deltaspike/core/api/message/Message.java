@@ -26,7 +26,7 @@ public interface Message
     /**
      * @return the message key (or inline-text) of the current message
      */
-    String getDescriptor();
+    String getMessageTemplate();
 
     /**
      * @return all named and numbered arguments
