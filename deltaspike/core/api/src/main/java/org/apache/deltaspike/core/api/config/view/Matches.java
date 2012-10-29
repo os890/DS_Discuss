@@ -18,16 +18,14 @@
  */
 package org.apache.deltaspike.core.api.config.view;
 
+import org.apache.deltaspike.core.api.config.view.metadata.annotation.ViewMetaData;
+
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-/**
- * Allows to reference a view-config
- */
 
 @Target({ TYPE })
 @Retention(RUNTIME)

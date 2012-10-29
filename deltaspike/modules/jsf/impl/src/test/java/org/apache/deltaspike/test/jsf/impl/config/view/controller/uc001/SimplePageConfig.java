@@ -22,6 +22,6 @@ import org.apache.deltaspike.core.api.config.view.ViewConfig;
 import org.apache.deltaspike.jsf.api.config.view.controller.PageBean;
 
 @PageBean(PageBean001.class)
-public class SimplePageConfig implements ViewConfig
+class SimplePageConfig implements ViewConfig
 {
 }

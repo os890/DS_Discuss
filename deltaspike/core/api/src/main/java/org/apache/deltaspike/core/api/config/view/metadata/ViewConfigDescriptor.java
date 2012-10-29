@@ -20,13 +20,10 @@ package org.apache.deltaspike.core.api.config.view.metadata;
 
 import org.apache.deltaspike.core.api.config.view.ViewConfig;
 
-import java.lang.annotation.Annotation;
-import java.util.List;
-
 /**
  * Descriptor for view-configs
  */
-public interface ViewConfigDescriptor
+public interface ViewConfigDescriptor extends ConfigDescriptor
 {
     /**
      * View-ID of the current descriptor
@@ -41,23 +38,4 @@ public interface ViewConfigDescriptor
      * @return view-config class
      */
     Class<? extends ViewConfig> getViewConfig();
-
-    //TODO add generic descriptor to replace e.g.: Page.NavigationMode getNavigationMode();
-
-    /**
-     * Custom meta-data which is configured for the entry. It allows to provide and resolve custom meta-data annotated
-     * with {@link org.apache.deltaspike.jsf.api.config.view.ViewMetaData}
-     *
-     * @return custom meta-data of the current entry
-     */
-    List<Annotation> getMetaData();
-
-    /**
-     * Custom meta-data which is configured for the entry. It allows to provide and resolve custom meta-data annotated
-     * with {@link org.apache.deltaspike.jsf.api.config.view.ViewMetaData}
-     *
-     * @param target target type
-     * @return custom meta-data for the given type of the current entry
-     */
-    <T extends Annotation> List<T> getMetaData(Class<T> target);
 }

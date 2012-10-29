@@ -23,8 +23,12 @@ package org.apache.deltaspike.jsf.api.config.view.controller;
  * Such page beans support e.g. the view-controller annotations.
  */
 
-import org.apache.deltaspike.core.api.config.view.ViewMetaData;
+import org.apache.deltaspike.core.api.config.view.metadata.annotation.ViewMetaData;
+import org.apache.deltaspike.core.api.config.view.metadata.CallbackDescriptor;
+import org.apache.deltaspike.core.spi.config.view.ConfigPreProcessor;
+import org.apache.deltaspike.core.spi.config.view.ViewConfigNode;
 
+import java.lang.annotation.Annotation;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -37,7 +41,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Documented
 
-@ViewMetaData
+@ViewMetaData(preProcessor = PageBean.PageBeanConfigPreProcessor.class)
 public @interface PageBean
 {
     /**
@@ -52,23 +56,32 @@ public @interface PageBean
      *
      * @return name of the page-bean
      */
+    //TODO
     String name() default "";
 
-    /**
-     * Allows to specify multiple page-beans
-     */
-    @Target(TYPE)
-    @Retention(RUNTIME)
-    @Documented
-
-    @ViewMetaData
-    public static @interface List
+    public class PageBeanConfigPreProcessor implements ConfigPreProcessor<PageBean>
     {
-        /**
-         * Allows to specify multiple page-beans
-         *
-         * @return page-bean annotations
-         */
-        PageBean[] value();
+        @Override
+        public PageBean beforeAddToConfig(PageBean metaData, ViewConfigNode viewConfigNode)
+        {
+            viewConfigNode.registerCallbackDescriptors(
+                    PageBean.class, new ViewControllerDescriptor(metaData.value(), InitView.class));
+            viewConfigNode.registerCallbackDescriptors(
+                    PageBean.class, new ViewControllerDescriptor(metaData.value(), PrePageAction.class));
+            viewConfigNode.registerCallbackDescriptors(
+                    PageBean.class, new ViewControllerDescriptor(metaData.value(), PreRenderView.class));
+            viewConfigNode.registerCallbackDescriptors(
+                    PageBean.class, new ViewControllerDescriptor(metaData.value(), PostRenderView.class));
+            return metaData; //no change needed
+        }
+
+        //not needed outside
+        private class ViewControllerDescriptor extends CallbackDescriptor<Void>
+        {
+            protected ViewControllerDescriptor(Class beanClass, Class<? extends Annotation> callbackMarker)
+            {
+                super(beanClass, callbackMarker);
+            }
+        }
     }
 }

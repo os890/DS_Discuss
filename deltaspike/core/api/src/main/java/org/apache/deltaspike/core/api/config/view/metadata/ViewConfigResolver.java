@@ -25,6 +25,7 @@ import java.util.List;
 /**
  * Resolver for view-configs
  */
+//TODO re-visit name since we also need ConfigDescriptor
 public interface ViewConfigResolver
 {
     /**
@@ -34,6 +35,9 @@ public interface ViewConfigResolver
      * @return view-config-descriptor which represents the given view-id, null otherwise
      */
     ViewConfigDescriptor getViewConfigDescriptor(String viewId);
+
+    //TODO needed e.g. for folder nodes which aren't view-configs
+    ConfigDescriptor getConfigDescriptor(Class configClass);
 
     /**
      * Resolves the {@link ViewConfigDescriptor} for the given view-config-class
@@ -57,11 +61,11 @@ public interface ViewConfigResolver
      */
     ViewConfigDescriptor getDefaultErrorViewConfigDescriptor();
 
-    /**
+    /*
      * Resolves the descriptor for the inline- (or default-) error-page
      *
      * @param viewDefinitionClass view-config class which should be inspected concerning an inline-error-page
      * @return descriptor for the error page
      */
-    ViewConfigDescriptor getErrorViewConfigDescriptor(Class<? extends ViewConfig> viewDefinitionClass);
+    //TODO ViewConfigDescriptor getErrorViewConfigDescriptor(Class<? extends ViewConfig> viewDefinitionClass);
 }

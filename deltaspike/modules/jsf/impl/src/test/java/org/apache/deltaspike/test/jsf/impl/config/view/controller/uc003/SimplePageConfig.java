@@ -21,7 +21,7 @@ package org.apache.deltaspike.test.jsf.impl.config.view.controller.uc003;
 import org.apache.deltaspike.core.api.config.view.ViewConfig;
 import org.apache.deltaspike.jsf.api.config.view.controller.PageBean;
 
-@PageBean(value = PageBean003.class, name = "pageBean003") //e.g. in case of producers with @Named(...)
-public class SimplePageConfig implements ViewConfig
+@PageBean(value = PageBean003.class)
+class SimplePageConfig implements ViewConfig
 {
 }

@@ -23,10 +23,10 @@ import org.apache.deltaspike.jsf.api.config.view.controller.PreRenderView;
 import javax.enterprise.inject.Model;
 
 @Model
-public class PageBean001
+class PageBean001
 {
     @PreRenderView
-    protected void preRenderView()
+    protected void preRenderViewCallbackMethod()
     {
     }
 }

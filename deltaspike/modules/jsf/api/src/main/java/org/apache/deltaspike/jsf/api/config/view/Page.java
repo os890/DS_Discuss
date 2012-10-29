@@ -18,14 +18,22 @@
  */
 package org.apache.deltaspike.jsf.api.config.view;
 
-import org.apache.deltaspike.core.api.config.view.ViewMetaData;
+import org.apache.deltaspike.core.api.config.view.metadata.annotation.ViewMetaData;
+import org.apache.deltaspike.core.spi.config.view.ConfigPreProcessor;
+import org.apache.deltaspike.core.spi.config.view.ViewConfigNode;
+import org.apache.deltaspike.jsf.api.literal.PageLiteral;
+import org.apache.deltaspike.jsf.util.NamingConventionUtils;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.lang.reflect.Modifier;
 
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static org.apache.deltaspike.jsf.api.config.view.Page.Extension.XHTML;
+import static org.apache.deltaspike.jsf.api.config.view.Page.NavigationMode.FORWARD;
+import static org.apache.deltaspike.jsf.api.config.view.Page.ViewParameterMode.EXCLUDE;
 
 /**
  * Optional annotation to specify page specific meta-data
@@ -36,9 +44,15 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Documented
 
-@ViewMetaData
+@ViewMetaData(preProcessor = Page.PageConfigPreProcessor.class)
 public @interface Page
 {
+    /**
+     * Allows to specify a custom base-path for the page represented by the view-config
+     * @return base-path
+     */
+    String basePath() default "";
+
     /**
      * Allows to specify a custom (file-)name for the page represented by the view-config
      *
@@ -93,5 +107,66 @@ public @interface Page
     public enum ViewParameterMode
     {
         DEFAULT, INCLUDE, EXCLUDE
+    }
+
+    static class PageConfigPreProcessor implements ConfigPreProcessor<Page>
+    {
+        @Override
+        public Page beforeAddToConfig(Page page, ViewConfigNode viewConfigNode)
+        {
+            boolean defaultValueReplaced = false;
+
+            String basePath = page.basePath();
+            String name = page.name();
+            String extension = page.extension();
+            Page.NavigationMode navigation = page.navigation();
+            Page.ViewParameterMode viewParams = page.viewParams();
+            Class source = viewConfigNode.getSource();
+
+            if (("".equals(basePath) || basePath == null) && isPage(source) /*only calc the path for real pages*/)
+            {
+                defaultValueReplaced = true;
+
+                basePath = NamingConventionUtils.toPath(viewConfigNode.getParent());
+            }
+
+            if (("".equals(name) || name == null) && isPage(source) /*only calc the path for real pages*/)
+            {
+                defaultValueReplaced = true;
+                String className = viewConfigNode.getSource().getSimpleName();
+                name = className.substring(0, 1).toLowerCase() + className.substring(1);
+            }
+
+            if (Page.Extension.DEFAULT.equals(extension) || extension == null)
+            {
+                defaultValueReplaced = true;
+                extension = XHTML;
+            }
+
+            if (Page.NavigationMode.DEFAULT.equals(navigation) || navigation == null)
+            {
+                defaultValueReplaced = true;
+                navigation = FORWARD;
+            }
+
+            if (Page.ViewParameterMode.DEFAULT.equals(viewParams) || viewParams == null)
+            {
+                defaultValueReplaced = true;
+                viewParams = EXCLUDE;
+            }
+
+            if (defaultValueReplaced)
+            {
+                return new PageLiteral(basePath, name, extension, navigation, viewParams);
+            }
+            return page;
+        }
+
+        //it's possible that the given source is a folder-node
+        //e.g. @Page(navigation = REDIRECT) specified for a whole folder
+        private boolean isPage(Class source)
+        {
+            return !Modifier.isAbstract(source.getModifiers()) && !Modifier.isInterface(source.getModifiers());
+        }
     }
 }

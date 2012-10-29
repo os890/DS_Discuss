@@ -18,11 +18,10 @@
  */
 package org.apache.deltaspike.jsf.api.config.view;
 
-import org.apache.deltaspike.core.api.config.view.Aggregated;
-import org.apache.deltaspike.core.api.config.view.ViewMetaData;
+import org.apache.deltaspike.core.api.config.view.metadata.annotation.Aggregated;
+import org.apache.deltaspike.core.api.config.view.metadata.annotation.ViewMetaData;
 
 import javax.enterprise.util.Nonbinding;
-import javax.interceptor.InterceptorBinding;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -41,7 +40,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @ViewMetaData
 @Aggregated(true)
-@InterceptorBinding
+//TODO @InterceptorBinding
 public @interface PageParameter
 {
     /**
@@ -62,12 +61,13 @@ public @interface PageParameter
     @Retention(RUNTIME)
     @Documented
 
+    //TODO add special support for list-annotations (add value automatically)
     /**
      * Allows to specify multiple parameters (@see ViewParameter)
      */
     @ViewMetaData
     @Aggregated(true)
-    @InterceptorBinding
+    //TODO @InterceptorBinding
     public static @interface List
     {
         /**

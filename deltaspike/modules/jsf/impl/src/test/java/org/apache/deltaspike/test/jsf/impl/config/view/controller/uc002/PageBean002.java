@@ -20,13 +20,15 @@ package org.apache.deltaspike.test.jsf.impl.config.view.controller.uc002;
 
 import org.apache.deltaspike.jsf.api.config.view.controller.PostRenderView;
 
-import javax.enterprise.inject.Model;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Named;
 
-@Model
-public class PageBean002
+@Named("pageBean")
+@RequestScoped
+class PageBean002
 {
     @PostRenderView
-    protected void postRenderView()
+    protected void postRenderViewCallbackMethod()
     {
     }
 }

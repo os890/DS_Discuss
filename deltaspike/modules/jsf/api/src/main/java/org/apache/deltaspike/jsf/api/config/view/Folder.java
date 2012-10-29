@@ -18,7 +18,11 @@
  */
 package org.apache.deltaspike.jsf.api.config.view;
 
-import org.apache.deltaspike.core.api.config.view.ViewMetaData;
+import org.apache.deltaspike.core.api.config.view.metadata.annotation.ViewMetaData;
+import org.apache.deltaspike.core.spi.config.view.ConfigPreProcessor;
+import org.apache.deltaspike.core.spi.config.view.ViewConfigNode;
+import org.apache.deltaspike.jsf.api.literal.FolderLiteral;
+import org.apache.deltaspike.jsf.util.NamingConventionUtils;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -36,7 +40,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Documented
 
-@ViewMetaData
+@ViewMetaData(preProcessor = Folder.FolderConfigPreProcessor.class)
 public @interface Folder
 {
     /**
@@ -46,10 +50,28 @@ public @interface Folder
      */
     String name() default "";
 
-    /**
-     * Allows to specify that the folder meta-data should get applied to the page-meta-data also just via nesting
-     *
-     * @return true if meta-data should be inherited by the nested view-configs
-     */
-    boolean inheritConfig() default false;
+    static class FolderConfigPreProcessor implements ConfigPreProcessor<Folder>
+    {
+        @Override
+        public Folder beforeAddToConfig(Folder folder, ViewConfigNode viewConfigNode)
+        {
+            boolean defaultValueReplaced = false;
+
+            String name = folder.name();
+
+            if (name == null) //null used as marker value for dynamically added instances
+            {
+                defaultValueReplaced = true;
+                name = NamingConventionUtils.toPath(viewConfigNode);
+            }
+
+            //TODO if name.startsWith("./")
+
+            if (defaultValueReplaced)
+            {
+                return new FolderLiteral(name);
+            }
+            return folder;
+        }
+    }
 }
