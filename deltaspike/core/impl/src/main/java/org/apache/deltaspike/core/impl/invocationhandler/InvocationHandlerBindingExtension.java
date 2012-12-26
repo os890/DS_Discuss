@@ -19,17 +19,12 @@
 package org.apache.deltaspike.core.impl.invocationhandler;
 
 import org.apache.deltaspike.core.api.invocationhandler.annotation.InvocationHandlerBinding;
-import org.apache.deltaspike.core.api.provider.BeanProvider;
 import org.apache.deltaspike.core.spi.activation.Deactivatable;
 import org.apache.deltaspike.core.util.ClassDeactivationUtils;
 import org.apache.deltaspike.core.util.ClassUtils;
-import org.apache.deltaspike.core.util.ExceptionUtils;
-import org.apache.deltaspike.core.util.bean.ImmutableBeanWrapper;
-import org.apache.deltaspike.core.util.bean.ImmutablePassivationCapableBeanWrapper;
-import org.apache.deltaspike.core.util.bean.WrappingBeanBuilder;
+import org.apache.deltaspike.core.util.bean.BeanBuilder;
 import org.apache.deltaspike.core.util.metadata.builder.AnnotatedTypeBuilder;
 
-import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.AnnotatedType;
@@ -37,22 +32,12 @@ import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.BeforeBeanDiscovery;
 import javax.enterprise.inject.spi.Extension;
-import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessAnnotatedType;
-import javax.inject.Inject;
-import javax.inject.Qualifier;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Proxy;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class InvocationHandlerBindingExtension implements Extension, Deactivatable
 {
@@ -62,46 +47,62 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
     private Map<Class<? extends Annotation>, Class<? extends InvocationHandler>> partialBeanHandlers =
             new HashMap<Class<? extends Annotation>, Class<? extends InvocationHandler>>();
 
+    private IllegalStateException deploymentError;
+
     protected void init(@Observes BeforeBeanDiscovery beforeBeanDiscovery)
     {
-        isActivated = ClassDeactivationUtils.isActivated(getClass());
+        this.isActivated = ClassDeactivationUtils.isActivated(getClass());
+
+        if (this.isActivated)
+        {
+            this.isActivated = ClassUtils.tryToLoadClassForName("javassist.util.proxy.ProxyFactory") != null;
+        }
     }
 
-    public <X> void findInvocationHandlerBindings(@Observes ProcessAnnotatedType<X> processAnnotatedType)
+    public <X> void findInvocationHandlerBindings(@Observes ProcessAnnotatedType<X> pat)
     {
-        if (!isActivated)
+        if (!this.isActivated || this.deploymentError != null)
         {
             return;
         }
 
-        Class<X> beanClass = processAnnotatedType.getAnnotatedType().getJavaClass();
-        Class<? extends Annotation> invocationHandlerBindingAnnotationClass =
-                getInvocationHandlerBindingAnnotation(processAnnotatedType);
+        Class<X> beanClass = pat.getAnnotatedType().getJavaClass();
+        Class<? extends Annotation> bindingAnnotationClass = getInvocationHandlerBindingAnnotationClass(pat);
 
-        if (invocationHandlerBindingAnnotationClass == null)
+        if (bindingAnnotationClass == null)
         {
             return;
         }
 
         if ((beanClass.isInterface() || Modifier.isAbstract(beanClass.getModifiers())))
         {
-            this.partialBeans.put(beanClass, invocationHandlerBindingAnnotationClass);
+            this.partialBeans.put(beanClass, bindingAnnotationClass);
         }
         else if (InvocationHandler.class.isAssignableFrom(beanClass))
         {
-            validateInvocationHandler(beanClass, invocationHandlerBindingAnnotationClass);
+            validateInvocationHandler(beanClass, bindingAnnotationClass);
 
-            this.partialBeanHandlers.put(
-                    invocationHandlerBindingAnnotationClass,
-                    (Class<? extends InvocationHandler>) beanClass);
-            processAnnotatedType.veto();
+            this.partialBeanHandlers.put(bindingAnnotationClass, (Class<? extends InvocationHandler>) beanClass);
+            pat.veto();
+        }
+        else
+        {
+            this.deploymentError = new IllegalStateException(beanClass.getName() + " is annotated with @" +
+                bindingAnnotationClass.getName() + " and therefore has to be " +
+                "an abstract class, an interface or an implementation of " + InvocationHandler.class.getName());
         }
     }
 
     public <X> void createBeans(@Observes AfterBeanDiscovery afterBeanDiscovery, BeanManager beanManager)
     {
-        if (!isActivated)
+        if (!this.isActivated)
         {
+            return;
+        }
+
+        if (this.deploymentError != null)
+        {
+            afterBeanDiscovery.addDefinitionError(this.deploymentError);
             return;
         }
 
@@ -115,207 +116,24 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
         this.partialBeanHandlers.clear();
     }
 
-    private <T> Bean<T> createPartialBean(Class<T> beanClass,
-                                          Class<? extends Annotation> bindingAnnotation,
-                                          BeanManager bm)
+    protected <T> Bean<T> createPartialBean(Class<T> beanClass,
+                                            Class<? extends Annotation> bindingAnnotationClass,
+                                            BeanManager beanManager)
     {
-        Class<? extends InvocationHandler> invocationHandlerClass = partialBeanHandlers.get(bindingAnnotation);
+        Class<? extends InvocationHandler> invocationHandlerClass = partialBeanHandlers.get(bindingAnnotationClass);
 
         AnnotatedType<T> annotatedType = new AnnotatedTypeBuilder<T>().readFromType(beanClass).create();
 
-        Set<InjectionPoint> injectionPoints = new HashSet<InjectionPoint>(); //TODO currently not supported
-        WrappingBeanBuilder<T> beanBuilder =
-                new ProxyAwareBeanBuilder<T>(beanClass, invocationHandlerClass, injectionPoints, bm)
-                .readFromType(annotatedType);
+        BeanBuilder<T> beanBuilder = new BeanBuilder<T>(beanManager)
+                .readFromType(annotatedType)
+                .beanLifecycle(new PartialBeanLifecycle(beanClass, invocationHandlerClass, beanManager));
 
         return beanBuilder.create();
     }
 
-    private static class ProxyAwareBeanBuilder<T> extends WrappingBeanBuilder<T>
+    protected <X> Class<? extends Annotation> getInvocationHandlerBindingAnnotationClass(ProcessAnnotatedType<X> pat)
     {
-        private final Class<T> beanClass;
-        private Class<? extends InvocationHandler> handlerClass;
-        private final Set<InjectionPoint> injectionPoints;
-
-        public ProxyAwareBeanBuilder(Class<T> beanClass,
-                                     Class<? extends InvocationHandler> handlerClass,
-                                     Set<InjectionPoint> injectionPoints,
-                                     BeanManager beanManager)
-        {
-            super(null, beanManager);
-            this.beanClass = beanClass;
-            this.handlerClass = handlerClass;
-            this.injectionPoints = injectionPoints;
-        }
-
-        @Override
-        public ImmutableBeanWrapper<T> create()
-        {
-            if (isPassivationCapable())
-            {
-                return new ImmutablePassivationCapableBeanWrapper<T>(createProxyAwareBean(),
-                        getName(), getQualifiers(), getScope(), getStereotypes(), getTypes(), isAlternative(),
-                        isNullable(), getToString(), getId());
-            }
-            else
-            {
-                return new ImmutableBeanWrapper<T>(createProxyAwareBean(), getName(), getQualifiers(), getScope(),
-                        getStereotypes(), getTypes(), isAlternative(), isNullable(), getToString());
-            }
-        }
-
-        private Bean<T> createProxyAwareBean()
-        {
-            return new Bean<T>()
-            {
-                @Override
-                public Class<?> getBeanClass()
-                {
-                    return beanClass;
-                }
-
-                @Override
-                public T create(CreationalContext<T> context)
-                {
-                    T result = createProxy(beanClass);
-
-                    injectFields(((Proxy) result).getInvocationHandler(result));
-
-                    //TODO call post-construct callback
-
-                    return result;
-                }
-
-                private void injectFields(InvocationHandler invocationHandler)
-                {
-                    //TODO only scan once
-                    for (Field field : invocationHandler.getClass().getDeclaredFields())
-                    {
-                        if (!field.isAnnotationPresent(Inject.class))
-                        {
-                            continue;
-                        }
-
-                        field.setAccessible(true);
-
-                        Annotation[] qualifierList = filterQualifiers(field.getAnnotations());
-                        Object objectRef = BeanProvider.getContextualReference(field.getType(), qualifierList);
-
-                        try
-                        {
-                            field.set(invocationHandler, objectRef);
-                        }
-                        catch (Exception e)
-                        {
-                            ExceptionUtils.throwAsRuntimeException(e);
-                        }
-                    }
-                }
-
-                private Annotation[] filterQualifiers(Annotation[] annotations)
-                {
-                    List<Annotation> qualifiers = new ArrayList<Annotation>();
-
-                    for (Annotation annotation: annotations)
-                    {
-                        if (annotation.annotationType().isAnnotationPresent(Qualifier.class))
-                        {
-                            qualifiers.add(annotation);
-                        }
-                    }
-
-                    if (qualifiers.isEmpty())
-                    {
-                        return new Annotation[] {};
-                    }
-
-                    return qualifiers.toArray(new Annotation[qualifiers.size()]);
-                }
-
-                @Override
-                public void destroy(T instance, CreationalContext<T> context)
-                {
-                    //TODO call pre-destroy callback
-                    context.release();
-                }
-
-                //TODO proxy for abstract classes e.g. via javassist
-                private <T> T createProxy(Class<T> type)
-                {
-                    InvocationHandler invocationHandler = createInvocationHandler(handlerClass);
-                    return type.cast(Proxy.newProxyInstance(ClassUtils.getClassLoader(null),
-                            new Class<?>[]{type}, invocationHandler));
-                }
-
-                private InvocationHandler createInvocationHandler(Class<? extends InvocationHandler> invocationHandler)
-                {
-                    try
-                    {
-                        return invocationHandler.newInstance();
-                    }
-                    catch (Exception e)
-                    {
-                        ExceptionUtils.throwAsRuntimeException(e);
-                    }
-                    //can't happen
-                    return null;
-                }
-
-                @Override
-                public Set<InjectionPoint> getInjectionPoints()
-                {
-                    return injectionPoints;
-                }
-
-                @Override
-                public Set<Type> getTypes()
-                {
-                    return ProxyAwareBeanBuilder.this.getTypes();
-                }
-
-                @Override
-                public Set<Annotation> getQualifiers()
-                {
-                    return ProxyAwareBeanBuilder.this.getQualifiers();
-                }
-
-                @Override
-                public Class<? extends Annotation> getScope()
-                {
-                    return ProxyAwareBeanBuilder.this.getScope();
-                }
-
-                @Override
-                public String getName()
-                {
-                    return ProxyAwareBeanBuilder.this.getName();
-                }
-
-                @Override
-                public boolean isNullable()
-                {
-                    return ProxyAwareBeanBuilder.this.isNullable();
-                }
-
-                @Override
-                public Set<Class<? extends Annotation>> getStereotypes()
-                {
-                    return ProxyAwareBeanBuilder.this.getStereotypes();
-                }
-
-                @Override
-                public boolean isAlternative()
-                {
-                    return ProxyAwareBeanBuilder.this.isAlternative();
-                }
-            };
-        }
-    }
-
-    private <X> Class<? extends Annotation> getInvocationHandlerBindingAnnotation(
-            ProcessAnnotatedType<X> processAnnotatedType)
-    {
-        for (Annotation annotation : processAnnotatedType.getAnnotatedType().getAnnotations())
+        for (Annotation annotation : pat.getAnnotatedType().getAnnotations())
         {
             if (annotation.annotationType().isAnnotationPresent(InvocationHandlerBinding.class))
             {
@@ -326,14 +144,14 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
         return null;
     }
 
-    private <X> void validateInvocationHandler(Class<X> beanClass, Class<? extends Annotation> bindingAnnotationClass)
+    protected <X> void validateInvocationHandler(Class<X> beanClass, Class<? extends Annotation> bindingAnnotationClass)
     {
-        Class<? extends InvocationHandler> prevFoundHandler = this.partialBeanHandlers.get(bindingAnnotationClass);
-        if (prevFoundHandler != null)
+        Class<? extends InvocationHandler> alreadyFoundHandler = this.partialBeanHandlers.get(bindingAnnotationClass);
+        if (alreadyFoundHandler != null)
         {
-            throw new IllegalStateException("Multiple handlers found for " +
+            this.deploymentError = new IllegalStateException("Multiple handlers found for " +
                     bindingAnnotationClass.getName() + " (" +
-                    prevFoundHandler.getName() + " and " + beanClass.getName() + ")");
+                    alreadyFoundHandler.getName() + " and " + beanClass.getName() + ")");
         }
     }
 }
