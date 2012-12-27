@@ -30,8 +30,12 @@ import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.InjectionTarget;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 class PartialBeanLifecycle<T, H extends InvocationHandler> implements ContextualLifecycle<T>
 {
@@ -39,13 +43,34 @@ class PartialBeanLifecycle<T, H extends InvocationHandler> implements Contextual
 
     private final InjectionTarget<T> partialBeanInjectionTarget;
     private final Class<H> handlerClass;
+    private final Annotation[] partialBeanQualifiers;
 
-    PartialBeanLifecycle(Class<T> partialBeanClass, Class<H> handlerClass, BeanManager beanManager)
+    PartialBeanLifecycle(Class<T> partialBeanClass,
+                         Set<Annotation> partialBeanAnnotations,
+                         Class<H> handlerClass,
+                         BeanManager beanManager)
     {
         this.handlerClass = handlerClass;
 
-        ProxyFactory proxyFactory = new ProxyFactory();
+        List<Annotation> foundQualifiers = new ArrayList<Annotation>();
+        for (Annotation annotation : partialBeanAnnotations)
+        {
+            if (beanManager.isQualifier(annotation.annotationType()))
+            {
+                foundQualifiers.add(annotation);
+            }
+        }
 
+        if (!foundQualifiers.isEmpty())
+        {
+            this.partialBeanQualifiers = foundQualifiers.toArray(new Annotation[foundQualifiers.size()]);
+        }
+        else
+        {
+            this.partialBeanQualifiers = new Annotation[] {};
+        }
+
+        ProxyFactory proxyFactory = new ProxyFactory();
         if (partialBeanClass.isInterface())
         {
             this.partialBeanInjectionTarget = null;
@@ -60,7 +85,6 @@ class PartialBeanLifecycle<T, H extends InvocationHandler> implements Contextual
 
             proxyFactory.setSuperclass(partialBeanClass);
         }
-
         proxyFactory.setFilter(new MethodFilter()
         {
             public boolean isHandled(Method method)
@@ -68,7 +92,6 @@ class PartialBeanLifecycle<T, H extends InvocationHandler> implements Contextual
                 return !"finalize".equals(method.getName());
             }
         });
-
         this.partialBeanProxyClass = ((Class<?>) proxyFactory.createClass()).asSubclass(partialBeanClass);
     }
 
@@ -76,7 +99,7 @@ class PartialBeanLifecycle<T, H extends InvocationHandler> implements Contextual
     {
         try
         {
-            H handlerInstance = BeanProvider.getContextualReference(this.handlerClass);
+            H handlerInstance = BeanProvider.getContextualReference(this.handlerClass, this.partialBeanQualifiers);
 
             T instance = this.partialBeanProxyClass.newInstance();
 

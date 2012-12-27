@@ -37,7 +37,10 @@ import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -48,10 +51,10 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
     private static final Logger LOG = Logger.getLogger(InvocationHandlerBindingExtension.class.getName());
 
     private Boolean isActivated = true;
-    private Map<Class<?>, Class<? extends Annotation>> partialBeans =
-            new HashMap<Class<?>, Class<? extends Annotation>>();
-    private Map<Class<? extends Annotation>, Class<? extends InvocationHandler>> partialBeanHandlers =
-            new HashMap<Class<? extends Annotation>, Class<? extends InvocationHandler>>();
+    private Map<PartialBeanEntry, Class<? extends Annotation>> partialBeans =
+            new HashMap<PartialBeanEntry, Class<? extends Annotation>>();
+    private Map<BindingEntry, Class<? extends InvocationHandler>> partialBeanHandlers =
+            new HashMap<BindingEntry, Class<? extends InvocationHandler>>();
 
     private IllegalStateException definitionError;
 
@@ -88,14 +91,18 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
 
         if ((beanClass.isInterface() || Modifier.isAbstract(beanClass.getModifiers())))
         {
-            this.partialBeans.put(beanClass, bindingAnnotationClass);
+            this.partialBeans.put(
+                new PartialBeanEntry(beanClass, pat.getAnnotatedType().getAnnotations(), beanManager),
+                    bindingAnnotationClass);
         }
         else if (InvocationHandler.class.isAssignableFrom(beanClass))
         {
             validateInvocationHandler(
                     beanClass, bindingAnnotationClass, pat.getAnnotatedType().getAnnotations(), beanManager);
 
-            this.partialBeanHandlers.put(bindingAnnotationClass, (Class<? extends InvocationHandler>) beanClass);
+            this.partialBeanHandlers.put(
+                    new BindingEntry(bindingAnnotationClass, pat.getAnnotatedType().getAnnotations(), beanManager),
+                    (Class<? extends InvocationHandler>) beanClass);
         }
         else
         {
@@ -118,7 +125,7 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
             return;
         }
 
-        for (Map.Entry<Class<?>, Class<? extends Annotation>> partialBeanEntry : this.partialBeans.entrySet())
+        for (Map.Entry<PartialBeanEntry, Class<? extends Annotation>> partialBeanEntry : this.partialBeans.entrySet())
         {
             Bean partialBean = createPartialBean(partialBeanEntry.getKey(), partialBeanEntry.getValue(), beanManager);
 
@@ -131,7 +138,7 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
                 afterBeanDiscovery.addDefinitionError(new IllegalStateException("A class which implements " +
                         InvocationHandler.class.getName() + " and is annotated with @" +
                         partialBeanEntry.getValue().getName() + " is needed as a handler for " +
-                        partialBeanEntry.getKey().getName() + ". See the documentation about @" +
+                        partialBeanEntry.getKey().getPartialBeanClass().getName() + ". See the documentation about @" +
                         InvocationHandlerBinding.class.getName() + "."));
             }
         }
@@ -140,11 +147,16 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
         this.partialBeanHandlers.clear();
     }
 
-    protected <T> Bean<T> createPartialBean(Class<T> beanClass,
+    protected <T> Bean<T> createPartialBean(PartialBeanEntry partialBeanEntry,
                                             Class<? extends Annotation> bindingAnnotationClass,
                                             BeanManager beanManager)
     {
-        Class<? extends InvocationHandler> invocationHandlerClass = partialBeanHandlers.get(bindingAnnotationClass);
+        Class<T> beanClass = (Class<T>)partialBeanEntry.getPartialBeanClass();
+
+        BindingEntry bindingEntry =
+            new BindingEntry(bindingAnnotationClass, partialBeanEntry.getPartialBeanQualifiers(), beanManager);
+
+        Class<? extends InvocationHandler> invocationHandlerClass = partialBeanHandlers.get(bindingEntry);
 
         if (invocationHandlerClass == null)
         {
@@ -155,7 +167,8 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
 
         BeanBuilder<T> beanBuilder = new BeanBuilder<T>(beanManager)
                 .readFromType(annotatedType)
-                .beanLifecycle(new PartialBeanLifecycle(beanClass, invocationHandlerClass, beanManager));
+                .beanLifecycle(new PartialBeanLifecycle(
+                        beanClass, annotatedType.getAnnotations(), invocationHandlerClass, beanManager));
 
         return beanBuilder.create();
     }
@@ -178,7 +191,10 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
                                                  Set<Annotation> annotations,
                                                  BeanManager beanManager)
     {
-        Class<? extends InvocationHandler> alreadyFoundHandler = this.partialBeanHandlers.get(bindingAnnotationClass);
+        List<Annotation> qualifiers = findQualifierAnnotations(annotations, beanManager);
+        BindingEntry bindingEntry = new BindingEntry(bindingAnnotationClass, qualifiers, beanManager);
+
+        Class<? extends InvocationHandler> alreadyFoundHandler = this.partialBeanHandlers.get(bindingEntry);
         if (alreadyFoundHandler != null)
         {
             this.definitionError = new IllegalStateException("Multiple handlers found for " +
@@ -197,5 +213,92 @@ public class InvocationHandlerBindingExtension implements Extension, Deactivatab
         //at least we have to restrict dependent-scoped beans (we wouldn't be able to destroy such handlers properly).
         this.definitionError = new IllegalStateException(beanClass.getName() + " needs to be normal-scoped. " +
             "(= Scopes annotated with @" + NormalScope.class.getName() + ")");
+    }
+
+
+    private List<Annotation> findQualifierAnnotations(Collection<Annotation> annotations, BeanManager beanManager)
+    {
+        List<Annotation> qualifiers = new ArrayList<Annotation>();
+
+        for (Annotation annotation : annotations)
+        {
+            if (beanManager.isQualifier(annotation.annotationType()))
+            {
+                qualifiers.add(annotation);
+            }
+        }
+        return qualifiers;
+    }
+
+    private class BindingEntry
+    {
+        private final Class<? extends Annotation> bindingAnnotationClass;
+        private final List<Annotation> qualifiers;
+
+        private BindingEntry(Class<? extends Annotation> bindingAnnotationClass,
+                             Collection<Annotation> annotations,
+                             BeanManager beanManager)
+        {
+            this.bindingAnnotationClass = bindingAnnotationClass;
+            this.qualifiers = findQualifierAnnotations(annotations, beanManager);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o)
+            {
+                return true;
+            }
+            if (!(o instanceof BindingEntry))
+            {
+                return false;
+            }
+
+            BindingEntry that = (BindingEntry) o;
+
+            if (!bindingAnnotationClass.equals(that.bindingAnnotationClass))
+            {
+                return false;
+            }
+            if (!qualifiers.equals(that.qualifiers))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            int result = bindingAnnotationClass.hashCode();
+            result = 31 * result + qualifiers.hashCode();
+            return result;
+        }
+    }
+
+    private class PartialBeanEntry
+    {
+        private final Class<?> partialBeanClass;
+        private List<Annotation> partialBeanQualifiers;
+
+        private PartialBeanEntry(Class<?> partialBeanClass,
+                                 Set<Annotation> partialBeanQualifiers,
+                                 BeanManager beanManager)
+        {
+            this.partialBeanClass = partialBeanClass;
+            this.partialBeanQualifiers = findQualifierAnnotations(partialBeanQualifiers, beanManager);
+        }
+
+        public Class<?> getPartialBeanClass()
+        {
+            return partialBeanClass;
+        }
+
+        public List<Annotation> getPartialBeanQualifiers()
+        {
+            return partialBeanQualifiers;
+        }
     }
 }
