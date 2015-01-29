@@ -55,16 +55,6 @@ public class PartialBeanAsAbstractClassTest
                 .addAsLibraries(testJar)
                 .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
 
-        if (CdiContainerUnderTest.is("owb-.*")   ||
-            CdiContainerUnderTest.is("tomee-.*") ||
-            CdiContainerUnderTest.is("wildfly-.*") ||
-            CdiContainerUnderTest.is("glassfish-.*"))
-        {
-            JavaArchive javassistJar = ShrinkWrap.create(JavaArchive.class, "dsjavassist.jar")
-                    .addPackages(true, "javassist");
-            webArchive.addAsLibrary(javassistJar);
-        }
-
         return webArchive;
     }
 

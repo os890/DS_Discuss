@@ -30,7 +30,7 @@ import javax.inject.Inject;
 
 @TestPartialBeanBinding
 @RequestScoped
-@CustomInterceptor //doesn't work currently
+@CustomInterceptor
 public abstract class PartialBean implements /*just needed for testing interceptors: */ TestInterceptorAware
 {
     @Inject

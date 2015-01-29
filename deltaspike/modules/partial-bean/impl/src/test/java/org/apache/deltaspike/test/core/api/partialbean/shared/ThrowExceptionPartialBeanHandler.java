@@ -16,31 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.deltaspike.partialbean.impl;
+package org.apache.deltaspike.test.core.api.partialbean.shared;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import javax.enterprise.context.ApplicationScoped;
 
-/**
- * Handler used for partial-beans which are abstract-classes.
- * At runtime it will be called from {@link MethodHandlerProxy} as instance of javassist.util.proxy.MethodHandler
- */
-class PartialBeanAbstractMethodHandler<T extends InvocationHandler>
+@ThrowExceptionPartialBeanBinding
+@ApplicationScoped
+public class ThrowExceptionPartialBeanHandler implements InvocationHandler
 {
-    private final T handlerInstance;
-
-    PartialBeanAbstractMethodHandler(T handlerInstance)
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable
     {
-        this.handlerInstance = handlerInstance;
-    }
-
-    //Signature given by javassist.util.proxy.MethodHandler#invoke
-    public Object invoke(Object target, Method method, Method proceedMethod, Object[] arguments) throws Throwable
-    {
-        if (proceedMethod != null)
-        {
-            return proceedMethod.invoke(target, arguments);
-        }
-        return this.handlerInstance.invoke(target, method, arguments);
+        throw new ClassNotFoundException();
     }
 }

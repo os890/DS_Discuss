@@ -16,22 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.deltaspike.test.core.api.partialbean.uc004;
+package org.apache.deltaspike.partialbean.spi;
 
-import org.apache.deltaspike.test.core.api.partialbean.shared.TestPartialBeanBinding;
+import java.net.URL;
+import java.util.Set;
+import org.apache.deltaspike.core.spi.activation.Deactivatable;
 
-import javax.enterprise.context.ApplicationScoped;
-
-@TestPartialBeanBinding
-@ApplicationScoped
-public abstract class ApplicationScopedPartialBean extends AbstractSuper
+public interface ArchiveFinder extends Deactivatable
 {
-    private int count;
-
-    public abstract String getResult();
-
-    public int getManualResult()
-    {
-        return count++;
-    }
+    /**
+     * Finds all JARs and directories which should be used for the partial bean scanning.
+     *
+     * @param loader
+     * @return
+     */
+    Set<URL> findArchives(ClassLoader loader);
 }

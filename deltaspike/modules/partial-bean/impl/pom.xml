@@ -60,9 +60,20 @@
         </dependency>
 
         <dependency>
-            <groupId>javassist</groupId>
-            <artifactId>javassist</artifactId>
-            <scope>test</scope>
+            <groupId>org.apache.xbean</groupId>
+            <artifactId>xbean-finder-shaded</artifactId>
+            <version>4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.xbean</groupId>
+            <artifactId>xbean-asm5-shaded</artifactId>
+            <version>4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss</groupId>
+            <artifactId>jboss-vfs</artifactId>
+            <version>3.2.9.Final</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>

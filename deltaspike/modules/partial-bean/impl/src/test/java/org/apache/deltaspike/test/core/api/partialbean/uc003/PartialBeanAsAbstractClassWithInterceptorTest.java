@@ -33,7 +33,6 @@ import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
@@ -43,16 +42,9 @@ import org.junit.runner.RunWith;
 @Category(SeCategory.class) //TODO use different category (only new versions of weld)
 public class PartialBeanAsAbstractClassWithInterceptorTest
 {
-    public static final String CONTAINER_WELD_2_0_0 = "weld-2\\.0\\.0\\..*";
-
     @Deployment
     public static WebArchive war()
     {
-        if (CdiContainerUnderTest.is(CONTAINER_WELD_2_0_0))
-        {
-            return ShrinkWrap.create(WebArchive.class, "empty.war");
-        }
-
         Asset beansXml = new StringAsset(
             "<beans><interceptors><class>" +
                     CustomInterceptorImpl.class.getName() +
@@ -76,11 +68,6 @@ public class PartialBeanAsAbstractClassWithInterceptorTest
     @Test
     public void testPartialBeanAsAbstractClassWithInterceptor() throws Exception
     {
-        // this test is known to not work under weld-2.0.0.Final and weld-2.0.0.SP1
-        Assume.assumeTrue(!CdiContainerUnderTest.is(CONTAINER_WELD_2_0_0));
-
-        // we only inject an Instance as the proxy creation for the Bean itself
-        // would trigger a nasty bug in Weld-2.0.0
         PartialBean partialBean = BeanProvider.getContextualReference(PartialBean.class);
         Assert.assertNotNull(partialBean);
 
@@ -90,8 +77,7 @@ public class PartialBeanAsAbstractClassWithInterceptorTest
 
         result = partialBean.getManualResult();
 
-        //"manual-test-true" would be the goal, but it isn't supported (for now)
-        Assert.assertEquals("manual-test-false", result);
+        Assert.assertEquals("manual-test-true", result);
 
         //TODO test pre-destroy callback
     }
