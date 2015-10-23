@@ -18,6 +18,7 @@
  */
 package org.apache.deltaspike.data.impl.meta;
 
+import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Produces;
 import javax.inject.Inject;
 
@@ -32,9 +33,10 @@ public class RepositoryComponentsFactory
 
     @Inject
     private RepositoryExtension extension;
-    
+
     @Produces
     @Initialized
+    @ApplicationScoped
     public RepositoryComponents producer()
     {
         return extension.getComponents();
