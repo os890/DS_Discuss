@@ -118,4 +118,13 @@ public class RepositoryComponents implements Serializable
         throw new RepositoryDefinitionException(repoClass);
     }
 
+    public Map<Class<?>, RepositoryComponent> getRepositories()
+    {
+        return repos;
+    }
+
+    public void addAll(Map<Class<?>, RepositoryComponent> repositories)
+    {
+        this.repos.putAll(repositories);
+    }
 }

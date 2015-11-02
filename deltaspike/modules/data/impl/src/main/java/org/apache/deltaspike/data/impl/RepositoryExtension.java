@@ -29,11 +29,13 @@ import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.BeforeBeanDiscovery;
+import javax.enterprise.inject.spi.BeforeShutdown;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.ProcessAnnotatedType;
 
 import org.apache.deltaspike.core.spi.activation.Deactivatable;
 import org.apache.deltaspike.core.util.ClassDeactivationUtils;
+import org.apache.deltaspike.core.util.ParentExtensionStorage;
 import org.apache.deltaspike.data.api.AbstractEntityRepository;
 import org.apache.deltaspike.data.api.Repository;
 import org.apache.deltaspike.data.impl.meta.RepositoryComponents;
@@ -75,6 +77,7 @@ public class RepositoryExtension implements Extension, Deactivatable
             return;
         }
         PersistenceUnits.instance().init();
+        ParentExtensionStorage.addExtension(this);
     }
 
     @SuppressWarnings("unchecked")
@@ -143,7 +146,29 @@ public class RepositoryExtension implements Extension, Deactivatable
     
     public RepositoryComponents getComponents()
     {
-        return components;
+        RepositoryComponents result = new RepositoryComponents();
+
+        RepositoryExtension parentExtension = ParentExtensionStorage.getParentExtension(this);
+        if (parentExtension != null)
+        {
+            result.addAll(parentExtension.components.getRepositories());
+        }
+        result.addAll(components.getRepositories());
+
+        return result;
     }
 
+    protected void cleanup(@Observes BeforeShutdown beforeShutdown)
+    {
+        if (isActivated)
+        {
+            components.getRepositories().clear();
+
+            RepositoryExtension parentExtension = ParentExtensionStorage.getParentExtension(this);
+            if (parentExtension != null)
+            {
+                parentExtension.components.getRepositories().clear();
+            }
+        }
+    }
 }
