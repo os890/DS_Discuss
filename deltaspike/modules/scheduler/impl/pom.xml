@@ -104,6 +104,20 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven.surefire.plugin.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/CustomSchedulerTest.java</exclude>
+                        <exclude>**/CustomSchedulerWarFileTest.java</exclude>
+                        <exclude>**/CustomSchedulerEarFileTest.java</exclude>
+                        <exclude>**/ScopeNotStartedTest.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <plugin>
                 <inherited>true</inherited>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
