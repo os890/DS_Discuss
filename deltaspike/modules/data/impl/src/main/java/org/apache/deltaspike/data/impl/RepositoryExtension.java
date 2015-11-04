@@ -35,7 +35,6 @@ import javax.enterprise.inject.spi.ProcessAnnotatedType;
 
 import org.apache.deltaspike.core.spi.activation.Deactivatable;
 import org.apache.deltaspike.core.util.ClassDeactivationUtils;
-import org.apache.deltaspike.core.util.ParentExtensionStorage;
 import org.apache.deltaspike.data.api.AbstractEntityRepository;
 import org.apache.deltaspike.data.api.Repository;
 import org.apache.deltaspike.data.impl.meta.RepositoryComponents;
@@ -60,13 +59,14 @@ public class RepositoryExtension implements Extension, Deactivatable
 
     private static final Logger log = Logger.getLogger(RepositoryExtension.class.getName());
 
+    private static RepositoryComponents staticComponents = new RepositoryComponents();
+
     private final List<RepositoryDefinitionException> definitionExceptions =
             new LinkedList<RepositoryDefinitionException>();
 
     private Boolean isActivated = true;
 
     private RepositoryComponents components = new RepositoryComponents();
-
 
     void beforeBeanDiscovery(@Observes BeforeBeanDiscovery before)
     {
@@ -77,7 +77,6 @@ public class RepositoryExtension implements Extension, Deactivatable
             return;
         }
         PersistenceUnits.instance().init();
-        ParentExtensionStorage.addExtension(this);
     }
 
     @SuppressWarnings("unchecked")
@@ -107,6 +106,7 @@ public class RepositoryExtension implements Extension, Deactivatable
                     return;
                 }
                 components.add(repoClass);
+                staticComponents.add(repoClass);
             }
             catch (RepositoryDefinitionException e)
             {
@@ -147,13 +147,15 @@ public class RepositoryExtension implements Extension, Deactivatable
     public RepositoryComponents getComponents()
     {
         RepositoryComponents result = new RepositoryComponents();
-
-        RepositoryExtension parentExtension = ParentExtensionStorage.getParentExtension(this);
-        if (parentExtension != null)
+        if (components.getRepositories().isEmpty() && !staticComponents.getRepositories().isEmpty())
         {
-            result.addAll(parentExtension.components.getRepositories());
+            result.addAll(staticComponents.getRepositories());
         }
-        result.addAll(components.getRepositories());
+
+        if (!components.getRepositories().isEmpty())
+        {
+            result.addAll(components.getRepositories());
+        }
 
         return result;
     }
@@ -162,13 +164,7 @@ public class RepositoryExtension implements Extension, Deactivatable
     {
         if (isActivated)
         {
-            components.getRepositories().clear();
-
-            RepositoryExtension parentExtension = ParentExtensionStorage.getParentExtension(this);
-            if (parentExtension != null)
-            {
-                parentExtension.components.getRepositories().clear();
-            }
+            staticComponents.getRepositories().clear();
         }
     }
 }
